@@ -1,0 +1,139 @@
+import { create } from 'zustand';
+import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { User, AuthState } from '@/types';
+import { setSupabaseSession, clearSupabaseSession } from '@/lib/supabase';
+
+const ACCESS_TOKEN_KEY = 'padres_3_0_access_token';
+const REFRESH_TOKEN_KEY = 'padres_3_0_refresh_token';
+const USER_KEY = 'padres_3_0_user';
+
+interface AuthStore extends AuthState {
+  // Actions
+  setUser: (user: User | null) => void;
+  setTokens: (accessToken: string, refreshToken: string) => void;
+  setLoading: (isLoading: boolean) => void;
+  login: (user: User, accessToken: string, refreshToken: string) => Promise<void>;
+  logout: () => Promise<void>;
+  loadStoredAuth: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
+}
+
+export const useAuthStore = create<AuthStore>((set, get) => ({
+  user: null,
+  accessToken: null,
+  refreshToken: null,
+  isAuthenticated: false,
+  isLoading: true,
+
+  setUser: (user) => set({ user, isAuthenticated: !!user }),
+
+  setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
+
+  setLoading: (isLoading) => set({ isLoading }),
+
+  login: async (user, accessToken, refreshToken) => {
+    try {
+      // Store tokens securely
+      await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken);
+      await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
+      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+
+      // Sync session with Supabase so RLS policies work correctly
+      await setSupabaseSession(accessToken, refreshToken);
+
+      set({
+        user,
+        accessToken,
+        refreshToken,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    } catch (error) {
+      console.error('Error storing auth data:', error);
+      throw error;
+    }
+  },
+
+  logout: async () => {
+    try {
+      // Clear Supabase session first
+      await clearSupabaseSession();
+
+      // Clear secure storage
+      await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+      await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+      await SecureStore.deleteItemAsync(USER_KEY);
+
+      // Clear user-specific preferences from AsyncStorage
+      await AsyncStorage.multiRemove([
+        'padres_3_0_apps_order',
+        'padres_3_0_apps_order_timestamp',
+      ]);
+
+      set({
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+    } catch (error) {
+      console.error('Error clearing auth data:', error);
+      // Still clear state even if storage fails
+      set({
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+    }
+  },
+
+  loadStoredAuth: async () => {
+    try {
+      set({ isLoading: true });
+
+      const [accessToken, refreshToken, userJson] = await Promise.all([
+        SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
+        SecureStore.getItemAsync(REFRESH_TOKEN_KEY),
+        SecureStore.getItemAsync(USER_KEY),
+      ]);
+
+      if (accessToken && refreshToken && userJson) {
+        const user = JSON.parse(userJson) as User;
+
+        // Sync session with Supabase so RLS policies work on app restart
+        await setSupabaseSession(accessToken, refreshToken);
+
+        set({
+          user,
+          accessToken,
+          refreshToken,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      } else {
+        set({ isLoading: false });
+      }
+    } catch (error) {
+      console.error('Error loading stored auth:', error);
+      set({ isLoading: false });
+    }
+  },
+
+  updateUser: (updates) => {
+    const currentUser = get().user;
+    if (currentUser) {
+      const updatedUser = { ...currentUser, ...updates };
+      set({ user: updatedUser });
+      // Persist the update
+      SecureStore.setItemAsync(USER_KEY, JSON.stringify(updatedUser)).catch(
+        console.error
+      );
+    }
+  },
+}));
+
+export default useAuthStore;

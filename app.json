@@ -1,0 +1,75 @@
+{
+  "expo": {
+    "name": "Padres 3.0",
+    "slug": "padres-30",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "padres30",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#dd78a4"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.starbizacademy.padres30"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#dd78a4"
+      },
+      "package": "com.starbizacademy.padres30",
+      "versionCode": 1,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#dd78a4"
+        }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Quicksand-Light.ttf",
+            "./assets/fonts/Quicksand-Regular.ttf",
+            "./assets/fonts/Quicksand-Medium.ttf",
+            "./assets/fonts/Quicksand-SemiBold.ttf",
+            "./assets/fonts/Quicksand-Bold.ttf"
+          ]
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "4d9f3db5-f0e5-4caf-bc16-5e500c24894f"
+      }
+    },
+    "owner": "mauricio-25"
+  }
+}
