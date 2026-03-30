@@ -3,6 +3,9 @@ import Purchases, {
   type CustomerInfo,
 } from 'react-native-purchases';
 
+// Module-level cache for prefetched packages
+let cachedPackages: PurchasesPackage[] | null = null;
+
 /**
  * Get all available subscription packages from RevenueCat.
  * These correspond to the products configured in App Store Connect / Google Play.
@@ -10,23 +13,74 @@ import Purchases, {
 export async function getAvailablePackages(): Promise<PurchasesPackage[]> {
   try {
     const offerings = await Purchases.getOfferings();
-    return offerings.current?.availablePackages || [];
+    const packages = offerings.current?.availablePackages || [];
+    if (packages.length > 0) {
+      cachedPackages = packages;
+    }
+    return packages;
   } catch (error) {
-    console.error('Error getting offerings:', error);
-    return [];
+    console.error('[IAP] Error getting offerings:', error);
+    return cachedPackages || [];
   }
+}
+
+/**
+ * Get available packages with exponential backoff retries.
+ * Apple's sandbox can take seconds to make products available after SDK init.
+ */
+async function getAvailablePackagesWithRetry(
+  maxRetries = 5
+): Promise<PurchasesPackage[]> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const packages = await getAvailablePackages();
+
+    console.log(
+      `[IAP] Fetch attempt ${attempt}/${maxRetries}: ` +
+      `${packages.length} packages found` +
+      (packages.length > 0 ? ` (${packages.map(p => p.identifier).join(', ')})` : '')
+    );
+
+    if (packages.length > 0) return packages;
+
+    if (attempt < maxRetries) {
+      const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s, 8s, 16s
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  console.error('[IAP] No packages available after all retries');
+  return cachedPackages || [];
+}
+
+/**
+ * Pre-fetch and cache offerings. Call at app startup so products
+ * are ready by the time the user reaches the paywall.
+ */
+export async function prefetchOfferings(): Promise<PurchasesPackage[]> {
+  return getAvailablePackagesWithRetry(3);
 }
 
 /**
  * Find the specific package for a family plan configuration.
  * Package identifier format: family_{childrenCount}_{billingCycle}
+ * Uses retry logic to handle sandbox delays.
  */
 export async function findFamilyPackage(
   childrenCount: number,
   billingCycle: 'monthly' | 'yearly'
 ): Promise<PurchasesPackage | null> {
-  const packages = await getAvailablePackages();
+  // Try cache first
   const targetId = `family_${childrenCount}_${billingCycle}`;
+
+  if (cachedPackages) {
+    const cached = cachedPackages.find(pkg =>
+      pkg.identifier === targetId || pkg.identifier.includes(targetId)
+    );
+    if (cached) return cached;
+  }
+
+  // Cache miss or not found - fetch with retries
+  const packages = await getAvailablePackagesWithRetry();
 
   return packages.find(pkg =>
     pkg.identifier === targetId ||
@@ -47,11 +101,10 @@ export async function purchaseFamilyPlan(
   const pkg = await findFamilyPackage(childrenCount, billingCycle);
 
   if (!pkg) {
-    // Log technical details for debugging
-    const packages = await getAvailablePackages();
+    const available = cachedPackages?.map(p => p.identifier).join(', ') || 'none';
     console.error(
       `[IAP] Package not found: family_${childrenCount}_${billingCycle}. ` +
-      `Available packages: ${packages.map(p => p.identifier).join(', ') || 'none'}`
+      `Available: ${available}`
     );
     throw new Error(
       'Este plan no está disponible en tu dispositivo. ' +

@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import colors from '@/constants/colors';
+import { configureRevenueCat } from '@/lib/revenuecat';
+import { prefetchOfferings } from '@/services/purchaseService';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -25,6 +27,14 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
+  // Initialize RevenueCat SDK and pre-fetch offerings so products
+  // are ready by the time the user reaches the paywall
+  useEffect(() => {
+    configureRevenueCat()
+      .then(() => prefetchOfferings())
+      .catch(console.error);
+  }, []);
+
   if (!fontsLoaded && !fontError) {
     return null;
   }
@@ -32,7 +42,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StatusBar style="dark" />
+        <SystemBars style="dark" />
         <Stack
           screenOptions={{
             headerShown: false,
@@ -56,8 +66,11 @@ export default function RootLayout() {
               animation: 'slide_from_right',
             }}
           />
+          <Stack.Screen name="onboarding" />
           <Stack.Screen name="perfil/informacion" />
           <Stack.Screen name="perfil/hijos" />
+          <Stack.Screen name="perfil/membresia" />
+          <Stack.Screen name="perfil/eliminar-cuenta" />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -7,11 +7,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Input, Card } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
+import { loginWithoutCode, AUTH_ERRORS } from '@/services/authService';
+import { useAuthStore } from '@/stores/authStore';
 import {
   isValidEmail,
   isValidParentCode,
@@ -33,6 +36,7 @@ export default function LoginScreen() {
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPurchaseOption, setShowPurchaseOption] = useState(false);
 
   // Validation errors
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -93,6 +97,7 @@ export default function LoginScreen() {
     setCode('');
     setCodeError(null);
     setError(null);
+    setShowPurchaseOption(false);
   }, []);
 
   const handleLogin = useCallback(async () => {
@@ -114,6 +119,20 @@ export default function LoginScreen() {
         router.replace('/(tabs)');
       } else {
         setError(result.error);
+        const memErrors = [AUTH_ERRORS.MEMBERSHIP_EXPIRED, AUTH_ERRORS.MEMBERSHIP_INACTIVE];
+        if (result.errorCode && memErrors.includes(result.errorCode)) {
+          setShowPurchaseOption(true);
+          // If partialAuth returned, identify user in RevenueCat so IAP purchase
+          // will be linked to their account (not anonymous)
+          if (result.partialAuth) {
+            const { loginPartial } = useAuthStore.getState();
+            await loginPartial(
+              result.partialAuth.user,
+              result.partialAuth.accessToken,
+              result.partialAuth.refreshToken
+            );
+          }
+        }
       }
     } catch (err) {
       setError('Error al iniciar sesión. Intenta de nuevo.');
@@ -121,6 +140,47 @@ export default function LoginScreen() {
       setIsLoading(false);
     }
   }, [email, password, code, signIn, router, validateCode]);
+
+  const handleNoCode = useCallback(async () => {
+    if (!email.trim() || !password) {
+      setError('Ingresa tu email y contrasena primero');
+      setStep('credentials');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await loginWithoutCode({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      if (result.success) {
+        const { login } = useAuthStore.getState();
+        await login(result.data.user, result.data.accessToken, result.data.refreshToken);
+        router.replace('/(tabs)');
+      } else {
+        if (result.needsPurchase || result.error.code === AUTH_ERRORS.NEEDS_PURCHASE) {
+          setError('No tienes una membresia activa. Puedes comprar una desde aqui.');
+          setShowPurchaseOption(true);
+        } else if (
+          result.error.code === AUTH_ERRORS.MEMBERSHIP_EXPIRED ||
+          result.error.code === AUTH_ERRORS.MEMBERSHIP_INACTIVE
+        ) {
+          setError(result.error.message);
+          setShowPurchaseOption(true);
+        } else {
+          setError(result.error.message);
+        }
+      }
+    } catch {
+      setError('Error al iniciar sesion. Intenta de nuevo.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [email, password, router]);
 
   const handleCodeChange = useCallback((text: string) => {
     setCode(formatParentCode(text));
@@ -141,10 +201,11 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.logoContainer}>
-          <View style={styles.logoPlaceholder}>
-            <Text style={styles.logoText}>Padres</Text>
-            <Text style={styles.logoSubtext}>3.0</Text>
-          </View>
+          <Image
+            source={require('../assets/images/icon.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
 
         <Text style={styles.title}>
@@ -159,6 +220,21 @@ export default function LoginScreen() {
         {error && (
           <Card style={styles.errorCard} padding="md">
             <Text style={styles.errorText}>{error}</Text>
+          </Card>
+        )}
+
+        {showPurchaseOption && (
+          <Card style={styles.purchaseCard} padding="md">
+            <Text style={styles.purchaseText}>
+              Compra una membresia familiar para acceder a todas las mini-apps educativas.
+            </Text>
+            <Button
+              title="Comprar membresia"
+              onPress={() => router.push('/onboarding/select-plan')}
+              fullWidth
+              size="sm"
+              style={styles.purchaseButton}
+            />
           </Card>
         )}
 
@@ -199,6 +275,14 @@ export default function LoginScreen() {
               fullWidth
               style={styles.button}
             />
+
+            <TouchableOpacity
+              onPress={() => router.push('/onboarding/register')}
+              style={styles.linkContainer}
+            >
+              <Text style={styles.linkText}>No tengo cuenta. </Text>
+              <Text style={[styles.linkText, styles.linkTextBold]}>Registrarme</Text>
+            </TouchableOpacity>
           </>
         ) : (
           <>
@@ -233,6 +317,15 @@ export default function LoginScreen() {
               variant="ghost"
               fullWidth
             />
+
+            <TouchableOpacity
+              onPress={handleNoCode}
+              style={styles.linkContainer}
+              disabled={isLoading}
+            >
+              <Text style={styles.linkText}>Ya tengo cuenta pero </Text>
+              <Text style={[styles.linkText, styles.linkTextBold]}>no tengo codigo</Text>
+            </TouchableOpacity>
           </>
         )}
       </ScrollView>
@@ -253,24 +346,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 32,
   },
-  logoPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 24,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: {
-    fontFamily: fontFamilies.bold,
-    fontSize: fontSizes.xl,
-    color: colors.textLight,
-  },
-  logoSubtext: {
-    fontFamily: fontFamilies.medium,
-    fontSize: fontSizes.sm,
-    color: colors.textLight,
-    opacity: 0.9,
+  logoImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 28,
   },
   title: {
     fontFamily: fontFamilies.bold,
@@ -308,5 +387,37 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: fontSizes.sm * 1.5,
+  },
+  linkContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  linkText: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: colors.textSecondary,
+  },
+  linkTextBold: {
+    fontFamily: fontFamilies.semiBold,
+    color: colors.primary,
+  },
+  purchaseCard: {
+    backgroundColor: colors.primary + '10',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+    marginBottom: 24,
+  },
+  purchaseText: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: colors.text,
+    marginBottom: 12,
+    lineHeight: fontSizes.sm * 1.5,
+  },
+  purchaseButton: {
+    marginTop: 0,
+    marginBottom: 0,
   },
 });

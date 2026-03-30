@@ -1,11 +1,22 @@
 import { api } from './api';
-import type { AuthResponse, LoginWithCodeRequest, User } from '@/types';
+import type {
+  AuthResponse,
+  LoginWithCodeRequest,
+  RegisterData,
+  BasicUser,
+  PostPurchaseInfo,
+  User,
+} from '@/types';
 
 const AUTH_ENDPOINTS = {
   parentLogin: '/api/auth/parent-login',
+  parentLoginNoCode: '/api/auth/parent-login-no-code',
+  mobileRegister: '/api/auth/mobile-register',
+  postPurchaseInfo: '/api/auth/post-purchase-info',
   refresh: '/api/auth/refresh',
   logout: '/api/auth/logout',
   me: '/api/auth/me',
+  deleteAccount: '/api/auth/delete-account',
 };
 
 export interface LoginError {
@@ -23,6 +34,7 @@ export const AUTH_ERRORS = {
   USER_CODE_MISMATCH: 'CODE_005',
   MEMBERSHIP_EXPIRED: 'MEM_001',
   MEMBERSHIP_INACTIVE: 'MEM_002',
+  NEEDS_PURCHASE: 'MEM_003',
   NETWORK_ERROR: 'NETWORK_001',
 };
 
@@ -53,9 +65,12 @@ export const getErrorMessage = (code: string): string => {
  */
 export async function loginWithCode(
   credentials: LoginWithCodeRequest
-): Promise<{ success: true; data: AuthResponse } | { success: false; error: LoginError }> {
+): Promise<
+  | { success: true; data: AuthResponse }
+  | { success: false; error: LoginError; partialAuth?: { accessToken: string; refreshToken: string; user: BasicUser } }
+> {
   try {
-    const response = await api.post<AuthResponse>(
+    const response = await api.post<AuthResponse & { partialAuth?: { accessToken: string; refreshToken: string; user: BasicUser } }>(
       AUTH_ENDPOINTS.parentLogin,
       credentials,
       { requiresAuth: false }
@@ -65,9 +80,10 @@ export async function loginWithCode(
       return {
         success: false,
         error: {
-          code: AUTH_ERRORS.INVALID_CREDENTIALS,
+          code: response.errorCode || AUTH_ERRORS.INVALID_CREDENTIALS,
           message: response.error,
         },
+        partialAuth: response.data?.partialAuth,
       };
     }
 
@@ -98,10 +114,136 @@ export async function logoutSession(): Promise<void> {
   await api.post(AUTH_ENDPOINTS.logout);
 }
 
+/**
+ * Register a new parent account from the mobile app.
+ * Returns tokens for immediate authentication.
+ */
+export async function registerMobile(
+  data: RegisterData
+): Promise<{ success: true; data: { accessToken: string; refreshToken: string; user: BasicUser } } | { success: false; error: LoginError }> {
+  try {
+    const response = await api.post<{ accessToken: string; refreshToken: string; user: BasicUser }>(
+      AUTH_ENDPOINTS.mobileRegister,
+      data,
+      { requiresAuth: false }
+    );
+
+    if (response.error) {
+      return {
+        success: false,
+        error: {
+          code: response.errorCode || 'REGISTER_001',
+          message: response.error,
+        },
+      };
+    }
+
+    return { success: true, data: response.data };
+  } catch {
+    return {
+      success: false,
+      error: {
+        code: AUTH_ERRORS.NETWORK_ERROR,
+        message: getErrorMessage(AUTH_ERRORS.NETWORK_ERROR),
+      },
+    };
+  }
+}
+
+/**
+ * Login without a family code. Used after IAP purchase
+ * when the user already has a membership but doesn't have their code handy.
+ */
+export async function loginWithoutCode(
+  credentials: { email: string; password: string }
+): Promise<{ success: true; data: AuthResponse } | { success: false; error: LoginError; needsPurchase?: boolean }> {
+  try {
+    const response = await api.post<AuthResponse & { needsPurchase?: boolean }>(
+      AUTH_ENDPOINTS.parentLoginNoCode,
+      credentials,
+      { requiresAuth: false }
+    );
+
+    if (response.error) {
+      return {
+        success: false,
+        error: {
+          code: response.errorCode || AUTH_ERRORS.INVALID_CREDENTIALS,
+          message: response.error,
+        },
+        needsPurchase: response.data?.needsPurchase,
+      };
+    }
+
+    return { success: true, data: response.data };
+  } catch {
+    return {
+      success: false,
+      error: {
+        code: AUTH_ERRORS.NETWORK_ERROR,
+        message: getErrorMessage(AUTH_ERRORS.NETWORK_ERROR),
+      },
+    };
+  }
+}
+
+/**
+ * Get family info after IAP purchase (codes, membership status).
+ * The app polls this after purchase until familyId is returned.
+ */
+export async function getPostPurchaseInfo(): Promise<PostPurchaseInfo | null> {
+  try {
+    const response = await api.get<PostPurchaseInfo>(AUTH_ENDPOINTS.postPurchaseInfo);
+    return response.data || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Delete the current user's account permanently.
+ * Required by Apple Guideline 5.1.1(v).
+ */
+export async function deleteAccount(): Promise<
+  | { success: true }
+  | { success: false; error: LoginError; platform?: string }
+> {
+  try {
+    const response = await api.delete<{ success: boolean; error?: string; platform?: string }>(
+      AUTH_ENDPOINTS.deleteAccount
+    );
+
+    if (response.error) {
+      return {
+        success: false,
+        error: {
+          code: response.errorCode || 'DELETE_001',
+          message: response.error,
+        },
+        platform: response.data?.platform,
+      };
+    }
+
+    return { success: true };
+  } catch {
+    return {
+      success: false,
+      error: {
+        code: AUTH_ERRORS.NETWORK_ERROR,
+        message: getErrorMessage(AUTH_ERRORS.NETWORK_ERROR),
+      },
+    };
+  }
+}
+
 export default {
   loginWithCode,
+  loginWithoutCode,
+  registerMobile,
+  getPostPurchaseInfo,
   getCurrentUser,
   logoutSession,
+  deleteAccount,
   getErrorMessage,
   AUTH_ERRORS,
 };

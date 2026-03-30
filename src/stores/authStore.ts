@@ -1,26 +1,38 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { User, AuthState } from '@/types';
+import type { User, BasicUser, AuthState } from '@/types';
 import { setSupabaseSession, clearSupabaseSession } from '@/lib/supabase';
+import { registerPushToken, unregisterPushToken } from '@/services/pushTokenService';
+import { loginRevenueCat, logoutRevenueCat } from '@/lib/revenuecat';
+import { deleteAccount as deleteAccountApi } from '@/services/authService';
 
 const ACCESS_TOKEN_KEY = 'padres_3_0_access_token';
 const REFRESH_TOKEN_KEY = 'padres_3_0_refresh_token';
 const USER_KEY = 'padres_3_0_user';
 
 interface AuthStore extends AuthState {
+  // Partial auth state (for onboarding flow before purchase)
+  basicUser: BasicUser | null;
+  isPartialAuth: boolean;
+
   // Actions
   setUser: (user: User | null) => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
   setLoading: (isLoading: boolean) => void;
   login: (user: User, accessToken: string, refreshToken: string) => Promise<void>;
+  loginPartial: (basicUser: BasicUser, accessToken: string, refreshToken: string) => Promise<void>;
+  upgradeToFullAuth: (user: User) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<{ success: boolean; error?: string; platform?: string }>;
   loadStoredAuth: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
   user: null,
+  basicUser: null,
+  isPartialAuth: false,
   accessToken: null,
   refreshToken: null,
   isAuthenticated: false,
@@ -34,38 +46,92 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   login: async (user, accessToken, refreshToken) => {
     try {
-      // Store tokens securely
       await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken);
       await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
       await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
 
-      // Sync session with Supabase so RLS policies work correctly
       await setSupabaseSession(accessToken, refreshToken);
 
       set({
         user,
+        basicUser: null,
+        isPartialAuth: false,
         accessToken,
         refreshToken,
         isAuthenticated: true,
         isLoading: false,
       });
+
+      // Identify user in RevenueCat for cross-platform sync
+      loginRevenueCat(user.id).catch(console.error);
+      registerPushToken(accessToken).catch(console.error);
     } catch (error) {
       console.error('Error storing auth data:', error);
       throw error;
     }
   },
 
+  // Partial login: user registered but no family/membership yet (onboarding flow)
+  loginPartial: async (basicUser, accessToken, refreshToken) => {
+    try {
+      await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken);
+      await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
+
+      await setSupabaseSession(accessToken, refreshToken);
+
+      set({
+        basicUser,
+        isPartialAuth: true,
+        accessToken,
+        refreshToken,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+
+      loginRevenueCat(basicUser.id).catch(console.error);
+    } catch (error) {
+      console.error('Error storing partial auth data:', error);
+      throw error;
+    }
+  },
+
+  // Upgrade from partial to full auth after purchase completes
+  upgradeToFullAuth: async (user) => {
+    try {
+      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+
+      const accessToken = get().accessToken;
+      if (accessToken) {
+        registerPushToken(accessToken).catch(console.error);
+      }
+
+      set({
+        user,
+        basicUser: null,
+        isPartialAuth: false,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    } catch (error) {
+      console.error('Error upgrading auth:', error);
+      throw error;
+    }
+  },
+
   logout: async () => {
     try {
-      // Clear Supabase session first
-      await clearSupabaseSession();
+      const currentToken = get().accessToken;
+      if (currentToken) {
+        await unregisterPushToken(currentToken).catch(console.error);
+      }
 
-      // Clear secure storage
+      await clearSupabaseSession();
+      logoutRevenueCat().catch(console.error);
+
       await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
       await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
       await SecureStore.deleteItemAsync(USER_KEY);
 
-      // Clear user-specific preferences from AsyncStorage
       await AsyncStorage.multiRemove([
         'padres_3_0_apps_order',
         'padres_3_0_apps_order_timestamp',
@@ -73,6 +139,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
       set({
         user: null,
+        basicUser: null,
+        isPartialAuth: false,
         accessToken: null,
         refreshToken: null,
         isAuthenticated: false,
@@ -80,15 +148,55 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       });
     } catch (error) {
       console.error('Error clearing auth data:', error);
-      // Still clear state even if storage fails
       set({
         user: null,
+        basicUser: null,
+        isPartialAuth: false,
         accessToken: null,
         refreshToken: null,
         isAuthenticated: false,
         isLoading: false,
       });
     }
+  },
+
+  deleteAccount: async () => {
+    const result = await deleteAccountApi();
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error.message,
+        platform: result.platform,
+      };
+    }
+
+    // Clean up local state (same as logout)
+    try {
+      await clearSupabaseSession();
+      logoutRevenueCat().catch(console.error);
+      await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+      await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+      await SecureStore.deleteItemAsync(USER_KEY);
+      await AsyncStorage.multiRemove([
+        'padres_3_0_apps_order',
+        'padres_3_0_apps_order_timestamp',
+      ]);
+    } catch {
+      // Continue even if cleanup fails
+    }
+
+    set({
+      user: null,
+      basicUser: null,
+      isPartialAuth: false,
+      accessToken: null,
+      refreshToken: null,
+      isAuthenticated: false,
+      isLoading: false,
+    });
+
+    return { success: true };
   },
 
   loadStoredAuth: async () => {
@@ -114,6 +222,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           isAuthenticated: true,
           isLoading: false,
         });
+
+        // Re-register push token on app restart (token may have changed)
+        registerPushToken(accessToken).catch(console.error);
       } else {
         set({ isLoading: false });
       }

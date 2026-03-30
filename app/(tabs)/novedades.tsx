@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,12 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Card } from '@/components/ui';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useResponsive } from '@/hooks/useResponsive';
 import colors from '@/constants/colors';
 import { fontFamilies, fontSizes } from '@/constants/typography';
 import { formatRelativeTime } from '@/utils/formatters';
@@ -26,6 +28,7 @@ const NOTIFICATION_ICONS: Record<string, keyof typeof MaterialIcons.glyphMap> = 
 
 export default function NovedadesScreen() {
   const insets = useSafeAreaInsets();
+  const { spacing } = useResponsive();
   const {
     notifications,
     groupedNotifications,
@@ -36,9 +39,11 @@ export default function NovedadesScreen() {
     markAllAsRead,
   } = useNotifications();
 
-  useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
+  useFocusEffect(
+    useCallback(() => {
+      loadNotifications();
+    }, [loadNotifications])
+  );
 
   const handleNotificationPress = useCallback(
     (notification: Notification) => {
@@ -131,7 +136,7 @@ export default function NovedadesScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingHorizontal: spacing.hp }]}>
         <Text style={styles.title}>Novedades</Text>
         {unreadCount > 0 && (
           <TouchableOpacity
@@ -153,7 +158,7 @@ export default function NovedadesScreen() {
             ? renderSectionHeader(item.date)
             : renderNotification({ item: item.item })
         }
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingHorizontal: spacing.hp }]}
         refreshControl={
           <RefreshControl
             refreshing={isLoading}

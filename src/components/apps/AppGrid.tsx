@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet, Pressable, FlatList } from 'react-native';
-import { AppCard, CARD_DIMENSIONS } from './AppCard';
+import { AppCard } from './AppCard';
+import { useResponsive } from '@/hooks/useResponsive';
 import type { MiniApp } from '@/constants/miniApps';
 
 interface AppGridProps {
@@ -10,6 +11,7 @@ interface AppGridProps {
 }
 
 export function AppGrid({ apps, onAppPress, onAppLongPress }: AppGridProps) {
+  const { grid } = useResponsive();
   const keyExtractor = useCallback((item: MiniApp) => item.id, []);
 
   const renderItem = useCallback(
@@ -21,22 +23,23 @@ export function AppGrid({ apps, onAppPress, onAppLongPress }: AppGridProps) {
           onLongPress={() => onAppLongPress(item)}
           delayLongPress={400}
         >
-          <AppCard app={item} />
+          <AppCard app={item} cardWidth={grid.cardWidth} iconSize={grid.iconSize} />
         </Pressable>
       );
     },
-    [onAppPress, onAppLongPress]
+    [onAppPress, onAppLongPress, grid.cardWidth, grid.iconSize]
   );
 
   return (
     <View style={styles.container}>
       <FlatList
+        key={`grid-${grid.columns}`}
         data={apps}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        numColumns={CARD_DIMENSIONS.columns}
-        contentContainerStyle={styles.grid}
-        columnWrapperStyle={styles.row}
+        numColumns={grid.columns}
+        contentContainerStyle={[styles.grid, { paddingHorizontal: grid.padding }]}
+        columnWrapperStyle={{ justifyContent: 'flex-start', gap: grid.gapX, marginBottom: grid.gapY }}
         showsVerticalScrollIndicator={false}
       />
     </View>
@@ -48,13 +51,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   grid: {
-    paddingHorizontal: CARD_DIMENSIONS.padding,
     paddingBottom: 120,
-  },
-  row: {
-    justifyContent: 'flex-start',
-    gap: CARD_DIMENSIONS.gapX,
-    marginBottom: CARD_DIMENSIONS.gapY,
   },
   appWrapper: {
     opacity: 1,

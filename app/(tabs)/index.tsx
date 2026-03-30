@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppGrid } from '@/components/apps';
 import { useAuthStore } from '@/stores/authStore';
 import { useApps } from '@/hooks/useApps';
+import { useResponsive } from '@/hooks/useResponsive';
 import colors from '@/constants/colors';
 import { fontFamilies, fontSizes } from '@/constants/typography';
 import type { MiniApp } from '@/constants/miniApps';
@@ -14,6 +15,7 @@ export default function AppsScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const { apps } = useApps();
+  const { spacing, fontScale } = useResponsive();
 
   const firstName =
     user?.firstName || user?.fullName?.split(' ')[0] || 'Usuario';
@@ -35,9 +37,9 @@ export default function AppsScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={styles.headerContainer}>
+      <View style={[styles.headerContainer, { paddingHorizontal: spacing.hp }]}>
         <View style={styles.headerLeft}>
-          <Text style={styles.greeting}>Hola, {firstName}</Text>
+          <Text style={[styles.greeting, { fontSize: fontSizes['2xl'] * fontScale }]}>Hola, {firstName}</Text>
           <Text style={styles.subtitle}>Gestiona tu familia</Text>
         </View>
       </View>

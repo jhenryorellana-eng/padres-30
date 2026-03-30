@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import colors from '@/constants/colors';
 import { NotificationBadge } from '@/components/ui';
+import { useResponsive } from '@/hooks/useResponsive';
 
 interface TabBarProps {
   state: {
@@ -26,10 +27,11 @@ const INACTIVE_COLOR = '#9CA3AF'; // gray-400
 
 export function TabBar({ state, navigation, unreadCount = 0 }: TabBarProps) {
   const insets = useSafeAreaInsets();
+  const { tab } = useResponsive();
 
   return (
     <View style={[styles.wrapper, { paddingBottom: insets.bottom + 24 }]}>
-      <View style={styles.container}>
+      <View style={[styles.container, { gap: tab.gap, paddingHorizontal: tab.paddingH }]}>
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
           const config = TAB_CONFIG[route.name] || { icon: 'help' };
@@ -50,7 +52,7 @@ export function TabBar({ state, navigation, unreadCount = 0 }: TabBarProps) {
               <View style={styles.iconContainer}>
                 <MaterialIcons
                   name={config.icon}
-                  size={28}
+                  size={tab.iconSize}
                   color={isFocused ? colors.primary : INACTIVE_COLOR}
                 />
                 {route.name === 'novedades' && unreadCount > 0 && (

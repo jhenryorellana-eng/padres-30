@@ -49,24 +49,24 @@ class ApiClient {
 
       if (!response.ok) {
         const error: ApiError = {
-          code: data.code || 'UNKNOWN_ERROR',
-          message: data.message || 'An error occurred',
-          details: data.details,
+          code: data.error?.code || data.code || 'UNKNOWN_ERROR',
+          message: data.error?.message || data.message || 'An error occurred',
+          details: data.error?.details || data.details,
         };
 
-        // Handle token expiration
-        if (response.status === 401) {
+        console.error(`[API Error] ${response.status} ${endpoint}:`, error.code, error.message);
+
+        // Handle token expiration (only for authenticated requests, not login)
+        if (response.status === 401 && requiresAuth) {
           const refreshed = await this.refreshToken();
           if (refreshed) {
-            // Retry the request with new token
             return this.request<T>(endpoint, options);
           } else {
-            // Logout if refresh failed
             useAuthStore.getState().logout();
           }
         }
 
-        return { data: null as T, error: error.message };
+        return { data: data as T, error: error.message, errorCode: error.code };
       }
 
       return { data };

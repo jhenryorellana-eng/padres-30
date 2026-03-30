@@ -123,19 +123,58 @@ export interface AppReview {
   userName: string;
 }
 
+// Basic user (pre-purchase, no family yet)
+export interface BasicUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+}
+
+// Registration data for mobile sign-up
+export interface RegisterData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  whatsappNumber?: string;
+  country?: string;
+  city?: string;
+}
+
+// Info returned after IAP purchase is processed
+export interface PostPurchaseInfo {
+  familyId: string | null;
+  pending?: boolean;
+  parentCode: string | null;
+  childCodes: string[];
+  membership: {
+    status: string;
+    billingCycle: string;
+    currentPeriodEnd: string;
+    purchasePlatform: string;
+    plan: {
+      maxChildren: number;
+    };
+  } | null;
+}
+
 // Navigation types
 export type RootStackParamList = {
   '(tabs)': undefined;
   login: undefined;
+  onboarding: undefined;
   'miniapp/[id]': { id: string };
   'perfil/informacion': undefined;
   'perfil/hijos': undefined;
+  'perfil/membresia': undefined;
 };
 
 // API Response types
 export interface ApiResponse<T> {
   data: T;
   error?: string;
+  errorCode?: string;
 }
 
 export interface ApiError {

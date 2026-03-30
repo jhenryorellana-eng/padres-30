@@ -50,10 +50,15 @@ export function useNotifications() {
     setError(null);
 
     try {
-      const data = await fetchNotifications();
-      setNotifications(data);
-    } catch (err) {
-      setError('Error al cargar notificaciones');
+      const serverData = await fetchNotifications();
+      // Merge: server notifications + local-only notifications (not yet on server)
+      const currentNotifications = useNotificationsStore.getState().notifications;
+      const serverIds = new Set(serverData.map((n) => n.id));
+      const localOnly = currentNotifications.filter((n) => !serverIds.has(n.id));
+      setNotifications([...serverData, ...localOnly]);
+    } catch {
+      // API failed — keep existing notifications, don't overwrite with empty
+      console.warn('[Notifications] API no disponible, manteniendo notificaciones locales');
     } finally {
       setLoading(false);
     }

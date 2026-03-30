@@ -15,9 +15,9 @@ if (!isExpoGoAndroid) {
 }
 
 const NOTIFICATION_ENDPOINTS = {
-  list: '/api/junior/notifications',
-  markRead: (id: string) => `/api/junior/notifications/${id}/read`,
-  markAllRead: '/api/junior/notifications/read-all',
+  list: '/api/notifications',
+  markRead: (id: string) => `/api/notifications/${id}/read`,
+  markAllRead: '/api/notifications/read-all',
 };
 
 // Configure notification behavior (solo si Notifications está disponible)
@@ -97,8 +97,7 @@ export async function fetchNotifications(): Promise<Notification[]> {
   );
 
   if (response.error) {
-    console.error('Error fetching notifications:', response.error);
-    return [];
+    throw new Error(response.error);
   }
 
   return response.data?.notifications || [];
@@ -108,7 +107,7 @@ export async function fetchNotifications(): Promise<Notification[]> {
  * Mark a notification as read
  */
 export async function markNotificationAsRead(id: string): Promise<boolean> {
-  const response = await api.post(NOTIFICATION_ENDPOINTS.markRead(id));
+  const response = await api.put(NOTIFICATION_ENDPOINTS.markRead(id));
   return !response.error;
 }
 
@@ -116,7 +115,7 @@ export async function markNotificationAsRead(id: string): Promise<boolean> {
  * Mark all notifications as read
  */
 export async function markAllNotificationsAsRead(): Promise<boolean> {
-  const response = await api.post(NOTIFICATION_ENDPOINTS.markAllRead);
+  const response = await api.put(NOTIFICATION_ENDPOINTS.markAllRead);
   return !response.error;
 }
 

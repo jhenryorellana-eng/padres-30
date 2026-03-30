@@ -15,7 +15,12 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.starbizacademy.padres30"
+      "bundleIdentifier": "com.starbizacademy.padres30",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Usa Face ID para acceder de forma segura a tu cuenta."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -57,7 +62,9 @@
             "./assets/fonts/Quicksand-Bold.ttf"
           ]
         }
-      ]
+      ],
+      "react-native-edge-to-edge",
+      "./plugins/withAndroidLargeScreenCompat"
     ],
     "experiments": {
       "typedRoutes": true

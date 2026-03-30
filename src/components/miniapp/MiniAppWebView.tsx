@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -31,6 +32,7 @@ interface MiniAppWebViewProps {
 
 export function MiniAppWebView({ app, onClose }: MiniAppWebViewProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +93,7 @@ export function MiniAppWebView({ app, onClose }: MiniAppWebViewProps) {
         onClose={onClose}
       />
 
-      <View style={styles.webviewContainer}>
+      <View style={[styles.webviewContainer, { paddingBottom: insets.bottom }]}>
         {isLoading && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -120,7 +122,7 @@ export function MiniAppWebView({ app, onClose }: MiniAppWebViewProps) {
             scalesPageToFit
             allowsInlineMediaPlayback
             mediaPlaybackRequiresUserAction={false}
-            originWhitelist={['*']}
+            originWhitelist={['https://*.starbizacademy.com', 'https://starbizacademy.com']}
           />
         )}
       </View>

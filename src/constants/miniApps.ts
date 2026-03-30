@@ -25,6 +25,16 @@ export const MINI_APPS: MiniApp[] = [
     url: 'https://stareduca-senior.starbizacademy.com',
     enabled: true,
   },
+  {
+    id: 'starvoices',
+    name: 'StarVoices',
+    description: 'Podcasts y conversaciones con expertos',
+    icon: 'mic',
+    color: '#C8963E',
+    gradient: { from: '#C8963E', to: '#B8453A' },
+    url: 'https://starvoices.starbizacademy.com',
+    enabled: true,
+  },
 ];
 
 export const getMiniAppById = (id: string): MiniApp | undefined => {

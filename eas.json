@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 10.0.0"
+    "version": ">= 10.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -26,6 +27,17 @@
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
+      },
+      "ios": {
+        "credentialsSource": "remote"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://app.starbizacademy.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://vmfdqkasrcrmcszmctmp.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtZmRxa2FzcmNybWNzem1jdG1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMzM3OTYsImV4cCI6MjA4NDcwOTc5Nn0.NAn4rk3Szm3zcgMj2DK0AWkGGU8v3qyiSbLi20bjIJQ",
+        "EXPO_PUBLIC_PROJECT_ID": "4d9f3db5-f0e5-4caf-bc16-5e500c24894f",
+        "EXPO_PUBLIC_RC_APPLE_API_KEY": "appl_njvapOdtuQfJYTIUQoCxSOFTYHX",
+        "EXPO_PUBLIC_RC_GOOGLE_API_KEY": "goog_tWusDNGcKHogEphSboLGcocqcLW"
       }
     }
   },
@@ -33,6 +45,11 @@
     "production": {
       "android": {
         "track": "internal"
+      },
+      "ios": {
+        "appleId": "starbiz2023@gmail.com",
+        "ascAppId": "6759849976",
+        "appleTeamId": "UU9B4A55VY"
       }
     }
   }

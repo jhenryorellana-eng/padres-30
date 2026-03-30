@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
 import { calculateAge, getInitials } from '@/utils/formatters';
+import { useResponsive } from '@/hooks/useResponsive';
 import colors from '@/constants/colors';
 import { fontFamilies } from '@/constants/typography';
 import Constants from 'expo-constants';
@@ -20,13 +21,14 @@ import Constants from 'expo-constants';
 interface MenuItemProps {
   label: string;
   onPress: () => void;
+  destructive?: boolean;
 }
 
-function MenuItem({ label, onPress }: MenuItemProps) {
+function MenuItem({ label, onPress, destructive }: MenuItemProps) {
   return (
     <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
-      <Text style={styles.menuLabel}>{label}</Text>
-      <MaterialIcons name="chevron-right" size={24} color={colors.primary} />
+      <Text style={[styles.menuLabel, destructive && styles.menuLabelDestructive]}>{label}</Text>
+      <MaterialIcons name="chevron-right" size={24} color={destructive ? colors.error : colors.primary} />
     </TouchableOpacity>
   );
 }
@@ -35,6 +37,7 @@ export default function CuentaScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuthStore();
+  const { spacing, fontScale, isTablet } = useResponsive();
 
   const fullName = user?.fullName || 'Usuario';
   const age = user?.dateOfBirth ? calculateAge(user.dateOfBirth) : null;
@@ -59,19 +62,19 @@ export default function CuentaScreen() {
   return (
     <ScrollView
       style={[styles.container, { paddingTop: insets.top }]}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingHorizontal: spacing.hpLg }]}
       showsVerticalScrollIndicator={false}
     >
       {/* Header */}
-      <Text style={styles.title}>Cuenta</Text>
+      <Text style={[styles.title, { fontSize: 32 * fontScale }]}>Cuenta</Text>
 
       {/* Avatar con gradiente */}
       <View style={styles.avatarSection}>
         <LinearGradient
           colors={[colors.primary, '#a855f7']}
-          style={styles.avatarGradient}
+          style={[styles.avatarGradient, isTablet && { width: 160, height: 160, borderRadius: 80 }]}
         >
-          <Text style={styles.avatarInitials}>{initials}</Text>
+          <Text style={[styles.avatarInitials, isTablet && { fontSize: 54 }]}>{initials}</Text>
         </LinearGradient>
 
         <Text style={styles.userName}>{fullName}</Text>
@@ -89,12 +92,13 @@ export default function CuentaScreen() {
           onPress={() => router.push('/perfil/hijos')}
         />
         <MenuItem
-          label="Configuración"
-          onPress={() => {}}
+          label="Mi Membresia"
+          onPress={() => router.push('/perfil/membresia')}
         />
         <MenuItem
-          label="Ayuda"
-          onPress={() => {}}
+          label="Eliminar mi cuenta"
+          onPress={() => router.push('/perfil/eliminar-cuenta')}
+          destructive
         />
       </View>
 
@@ -175,6 +179,9 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.medium,
     fontSize: 16,
     color: colors.text,
+  },
+  menuLabelDestructive: {
+    color: colors.error,
   },
   footer: {
     alignItems: 'center',

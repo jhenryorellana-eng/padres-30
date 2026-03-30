@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { loginWithCode, logoutSession, getErrorMessage } from '@/services/authService';
-import type { LoginWithCodeRequest } from '@/types';
+import type { LoginWithCodeRequest, BasicUser } from '@/types';
 
 export function useAuth() {
   const {
@@ -30,6 +30,8 @@ export function useAuth() {
       return {
         success: false as const,
         error: getErrorMessage(result.error.code),
+        errorCode: result.error.code,
+        partialAuth: result.partialAuth,
       };
     },
     [login]
