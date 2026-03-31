@@ -13,6 +13,13 @@ let cachedPackages: PurchasesPackage[] | null = null;
 export async function getAvailablePackages(): Promise<PurchasesPackage[]> {
   try {
     const offerings = await Purchases.getOfferings();
+
+    console.log('[IAP] Offerings response:', JSON.stringify({
+      currentId: offerings.current?.identifier || 'NONE',
+      currentPackages: offerings.current?.availablePackages?.length || 0,
+      allOfferingsKeys: Object.keys(offerings.all),
+    }));
+
     const packages = offerings.current?.availablePackages || [];
     if (packages.length > 0) {
       cachedPackages = packages;

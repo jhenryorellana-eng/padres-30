@@ -35,6 +35,7 @@ export async function configureRevenueCat(appUserId?: string): Promise<void> {
   await Purchases.configure({
     apiKey: RC_API_KEY,
     appUserID: appUserId || null,
+    usesStoreKit2IfAvailable: false,
   });
 
   isConfigured = true;

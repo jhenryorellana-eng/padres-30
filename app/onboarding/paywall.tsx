@@ -228,7 +228,7 @@ export default function PaywallScreen() {
         title={isLoading ? 'Procesando...' : `Suscribirme - ${displayPrice}/${priceLabel}`}
         onPress={handlePurchase}
         loading={isLoading}
-        disabled={isLoading || state === 'loading'}
+        disabled={isLoading || state === 'loading' || state === 'error'}
         fullWidth
         style={styles.button}
       />
