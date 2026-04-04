@@ -8,7 +8,7 @@ import {
   Linking,
   Platform,
 } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Purchases from 'react-native-purchases';
 import { Button, Card } from '@/components/ui';
@@ -22,6 +22,7 @@ const ENTITLEMENT_ID = 'starbiz_family_access';
 
 export default function MembresiaScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { user } = useAuthStore();
 
   const [hasEntitlement, setHasEntitlement] = useState(false);
@@ -206,6 +207,20 @@ export default function MembresiaScreen() {
               )}
             </Card>
 
+            {/* Renewal card - shown when membership is inactive */}
+            {!hasEntitlement && (
+              <Card style={styles.renewCard} padding="md">
+                <Text style={styles.renewText}>
+                  Tu membresia ha expirado. Renueva para seguir disfrutando de todas las mini-apps educativas.
+                </Text>
+                <Button
+                  title="Renovar suscripcion"
+                  onPress={() => router.push('/onboarding/select-plan')}
+                  fullWidth
+                />
+              </Card>
+            )}
+
             {/* Codes card */}
             <Card style={styles.codesCard} padding="lg">
               <Text style={styles.cardTitle}>Codigos familiares</Text>
@@ -354,6 +369,19 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
     color: colors.text,
+  },
+  renewCard: {
+    backgroundColor: colors.primary + '10',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+    marginBottom: 16,
+  },
+  renewText: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.sm,
+    color: colors.text,
+    marginBottom: 12,
+    lineHeight: fontSizes.sm * 1.5,
   },
   codesCard: {
     marginBottom: 16,

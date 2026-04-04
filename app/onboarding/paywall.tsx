@@ -120,13 +120,22 @@ export default function PaywallScreen() {
 
       // Check if entitlement is active
       if (customerInfo.entitlements.active['starbiz_family_access']) {
-        const { isPartialAuth } = useAuthStore.getState();
+        const { isPartialAuth, user } = useAuthStore.getState();
         if (isPartialAuth) {
-          // Renewal flow: user already has a family, webhook updates membership directly
+          // Renewal flow from login: user has expired membership
           Alert.alert(
             'Compra exitosa',
             'Tu membresia se ha renovado. Inicia sesion para continuar.',
             [{ text: 'Ir al login', onPress: () => router.replace('/login') }]
+          );
+          return;
+        }
+        if (user) {
+          // Renewal flow from membresia: fully authenticated user
+          Alert.alert(
+            'Compra exitosa',
+            'Tu membresia se ha renovado exitosamente.',
+            [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
           );
           return;
         }
