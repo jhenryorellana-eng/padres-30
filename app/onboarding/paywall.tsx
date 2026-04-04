@@ -6,6 +6,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -254,7 +255,20 @@ export default function PaywallScreen() {
       <Text style={styles.legalText}>
         La suscripcion se renueva automaticamente. Puedes cancelar en cualquier
         momento desde la configuracion de tu dispositivo. Al suscribirte, aceptas
-        nuestros Terminos de Servicio y Politica de Privacidad.
+        nuestros{' '}
+        <Text
+          style={styles.legalLink}
+          onPress={() => Linking.openURL('https://starbizacademy.com/padres-3/terminos-servicio')}
+        >
+          Terminos de Servicio
+        </Text>
+        {' '}y{' '}
+        <Text
+          style={styles.legalLink}
+          onPress={() => Linking.openURL('https://starbizacademy.com/padres-3/politica-privacidad')}
+        >
+          Politica de Privacidad
+        </Text>.
       </Text>
     </ScrollView>
   );
@@ -367,5 +381,9 @@ const styles = StyleSheet.create({
     lineHeight: fontSizes.xs * 1.6,
     marginTop: 8,
     paddingHorizontal: 16,
+  },
+  legalLink: {
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
 });
