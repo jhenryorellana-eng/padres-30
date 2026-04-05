@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,6 +73,24 @@ export default function SuccessScreen() {
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 2000);
   }, []);
+
+  const handleShareWhatsApp = useCallback(() => {
+    if (!info) return;
+
+    let message = `¡Ya estamos en Starbiz Academy!\n\n`;
+    message += `Mi codigo de padre: ${info.parentCode}\n\n`;
+    if (info.childCodes.length > 0) {
+      message += `Codigos para los hijos:\n`;
+      info.childCodes.forEach((code, i) => {
+        const name = childNames[i] || `Hijo ${i + 1}`;
+        message += `${name}: ${code}\n`;
+      });
+    }
+    message += `\nDescarga CEO Junior para tus hijos.`;
+
+    const encoded = encodeURIComponent(message);
+    Linking.openURL(`whatsapp://send?text=${encoded}`);
+  }, [info, childNames]);
 
   const handleGoToApp = useCallback(async () => {
     if (!basicUser) {
@@ -211,6 +230,16 @@ export default function SuccessScreen() {
           </Text>
         </View>
       </Card>
+
+      {info?.parentCode && (
+        <Button
+          title="Compartir por WhatsApp"
+          onPress={handleShareWhatsApp}
+          variant="outline"
+          fullWidth
+          style={styles.button}
+        />
+      )}
 
       <Button
         title={isEntering ? 'Ingresando...' : 'Ir a la app'}

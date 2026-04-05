@@ -84,7 +84,7 @@ export default function PaywallScreen() {
   // Poll for family setup after purchase
   const waitForFamilySetup = useCallback(async () => {
     setState('processing');
-    const maxRetries = 15;
+    const maxRetries = 30;
     const intervalMs = 2000;
 
     for (let i = 0; i < maxRetries; i++) {
@@ -120,18 +120,10 @@ export default function PaywallScreen() {
 
       // Check if entitlement is active
       if (customerInfo.entitlements.active['starbiz_family_access']) {
-        const { isPartialAuth, user } = useAuthStore.getState();
-        if (isPartialAuth) {
-          // Renewal flow from login: user has expired membership
-          Alert.alert(
-            'Compra exitosa',
-            'Tu membresia se ha renovado. Inicia sesion para continuar.',
-            [{ text: 'Ir al login', onPress: () => router.replace('/login') }]
-          );
-          return;
-        }
+        const { isPartialAuth, user, basicUser } = useAuthStore.getState();
+
+        // Renewal from membresia screen (fully authenticated user)
         if (user) {
-          // Renewal flow from membresia: fully authenticated user
           Alert.alert(
             'Compra exitosa',
             'Tu membresia se ha renovado exitosamente.',
@@ -139,6 +131,18 @@ export default function PaywallScreen() {
           );
           return;
         }
+
+        // Renewal from login (partial auth with existing family)
+        if (isPartialAuth && (basicUser as any)?.familyId) {
+          Alert.alert(
+            'Compra exitosa',
+            'Tu membresia se ha renovado. Inicia sesion para continuar.',
+            [{ text: 'Ir al login', onPress: () => router.replace('/login') }]
+          );
+          return;
+        }
+
+        // New user registration: wait for webhook to create family
         await waitForFamilySetup();
       } else {
         setState('error');

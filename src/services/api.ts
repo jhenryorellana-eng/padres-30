@@ -61,9 +61,8 @@ class ApiClient {
           const refreshed = await this.refreshToken();
           if (refreshed) {
             return this.request<T>(endpoint, options);
-          } else {
-            useAuthStore.getState().logout();
           }
+          // Don't auto-logout on 401 - return the error and let the UI handle it
         }
 
         return { data: data as T, error: error.message, errorCode: error.code };
