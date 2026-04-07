@@ -137,6 +137,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       await AsyncStorage.multiRemove([
         'padres_3_0_apps_order',
         'padres_3_0_apps_order_timestamp',
+        'notifications-storage',
       ]);
 
       set({
@@ -183,6 +184,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       await AsyncStorage.multiRemove([
         'padres_3_0_apps_order',
         'padres_3_0_apps_order_timestamp',
+        'notifications-storage',
       ]);
     } catch {
       // Continue even if cleanup fails
