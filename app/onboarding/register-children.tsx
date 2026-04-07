@@ -7,10 +7,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Modal,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker from 'react-native-ui-datepicker';
+import dayjs from 'dayjs';
 import { Button, Input, Card } from '@/components/ui';
 import { api } from '@/services/api';
 import colors from '@/constants/colors';
@@ -33,6 +35,12 @@ const EMPTY_CHILD: ChildForm = {
   country: '',
 };
 
+// Age range limits
+const today = dayjs();
+const MIN_DATE = today.subtract(17, 'year').toDate();
+const MAX_DATE = today.subtract(13, 'year').toDate();
+const DEFAULT_DATE = today.subtract(15, 'year').toDate();
+
 export default function RegisterChildrenScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -46,6 +54,7 @@ export default function RegisterChildrenScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(DEFAULT_DATE);
 
   const child = children[currentChild];
 
@@ -57,19 +66,31 @@ export default function RegisterChildrenScreen() {
     });
   }, [currentChild]);
 
+  const handleOpenDatePicker = useCallback(() => {
+    setTempDate(child.birthDate ? new Date(child.birthDate + 'T12:00:00') : DEFAULT_DATE);
+    setShowDatePicker(true);
+  }, [child.birthDate]);
+
+  const handleConfirmDate = useCallback(() => {
+    const yyyy = tempDate.getFullYear();
+    const mm = String(tempDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(tempDate.getDate()).padStart(2, '0');
+    updateChild('birthDate', `${yyyy}-${mm}-${dd}`);
+    setShowDatePicker(false);
+  }, [tempDate, updateChild]);
+
   const validateCurrentChild = useCallback(() => {
     if (!child.firstName.trim()) return 'El nombre es requerido';
     if (!child.lastName.trim()) return 'El apellido es requerido';
     if (!child.birthDate.trim()) return 'La fecha de nacimiento es requerida';
 
-    // Validate age (13-17)
     const birth = new Date(child.birthDate);
-    if (isNaN(birth.getTime())) return 'Fecha de nacimiento invalida (formato: YYYY-MM-DD)';
+    if (isNaN(birth.getTime())) return 'Fecha de nacimiento invalida';
 
-    const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const monthDiff = now.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) {
       age--;
     }
     if (age < 13 || age > 17) return 'La edad debe ser entre 13 y 17 anos';
@@ -115,7 +136,6 @@ export default function RegisterChildrenScreen() {
         return;
       }
 
-      // Pass child names to success screen
       const childNames = children.map(c => `${c.firstName.trim()} ${c.lastName.trim()}`);
       router.replace({
         pathname: '/onboarding/success',
@@ -176,33 +196,53 @@ export default function RegisterChildrenScreen() {
         <Text style={styles.inputLabel}>Fecha de nacimiento</Text>
         <TouchableOpacity
           style={styles.dateButton}
-          onPress={() => setShowDatePicker(true)}
+          onPress={handleOpenDatePicker}
         >
           <MaterialIcons name="cake" size={20} color={colors.textSecondary} style={styles.dateIcon} />
           <Text style={[styles.dateText, !child.birthDate && styles.datePlaceholder]}>
             {child.birthDate
-              ? new Date(child.birthDate + 'T12:00:00').toLocaleDateString('es', { year: 'numeric', month: 'long', day: 'numeric' })
+              ? dayjs(child.birthDate).format('D [de] MMMM [de] YYYY')
               : 'Seleccionar fecha (13-17 anos)'}
           </Text>
+          <MaterialIcons name="calendar-today" size={18} color={colors.primary} />
         </TouchableOpacity>
-        {showDatePicker && (
-          <DateTimePicker
-            value={child.birthDate ? new Date(child.birthDate + 'T12:00:00') : new Date(new Date().getFullYear() - 15, 0, 1)}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            maximumDate={new Date(new Date().getFullYear() - 13, new Date().getMonth(), new Date().getDate())}
-            minimumDate={new Date(new Date().getFullYear() - 17, new Date().getMonth(), new Date().getDate())}
-            onChange={(_, selectedDate) => {
-              setShowDatePicker(Platform.OS === 'ios');
-              if (selectedDate) {
-                const yyyy = selectedDate.getFullYear();
-                const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                const dd = String(selectedDate.getDate()).padStart(2, '0');
-                updateChild('birthDate', `${yyyy}-${mm}-${dd}`);
-              }
-            }}
-          />
-        )}
+
+        {/* Date picker modal */}
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                  <Text style={styles.modalCancel}>Cancelar</Text>
+                </TouchableOpacity>
+                <Text style={styles.modalTitle}>Fecha de nacimiento</Text>
+                <TouchableOpacity onPress={handleConfirmDate}>
+                  <Text style={styles.modalConfirm}>Confirmar</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                mode="single"
+                date={tempDate}
+                onChange={({ date }) => {
+                  if (date) setTempDate(new Date(date as string));
+                }}
+                minDate={MIN_DATE}
+                maxDate={MAX_DATE}
+                selectedItemColor={colors.primary}
+                headerButtonColor={colors.primary}
+                calendarTextStyle={{ fontFamily: fontFamilies.regular }}
+                headerTextStyle={{ fontFamily: fontFamilies.semiBold }}
+                weekDaysTextStyle={{ fontFamily: fontFamilies.medium }}
+                locale="es"
+              />
+            </View>
+          </View>
+        </Modal>
 
         <Input
           label="Ciudad"
@@ -319,6 +359,41 @@ const styles = StyleSheet.create({
   },
   datePlaceholder: {
     color: colors.textTertiary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 32,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.base,
+    color: colors.text,
+  },
+  modalCancel: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+    color: colors.textSecondary,
+  },
+  modalConfirm: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: fontSizes.sm,
+    color: colors.primary,
   },
   button: {
     marginTop: 8,
