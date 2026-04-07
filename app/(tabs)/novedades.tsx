@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -18,12 +18,19 @@ import { fontFamilies, fontSizes } from '@/constants/typography';
 import { formatRelativeTime } from '@/utils/formatters';
 import type { Notification } from '@/types';
 
+type FilterType = 'all' | 'unread' | 'read';
+
 const NOTIFICATION_ICONS: Record<string, keyof typeof MaterialIcons.glyphMap> = {
   achievement: 'emoji-events',
   course: 'school',
   message: 'message',
   system: 'info',
   miniapp: 'apps',
+  child_registered: 'child-care',
+  subscription_created: 'card-membership',
+  subscription_renewed: 'autorenew',
+  subscription_canceled: 'cancel',
+  enrollment_completed: 'check-circle',
 };
 
 export default function NovedadesScreen() {
@@ -31,13 +38,14 @@ export default function NovedadesScreen() {
   const { spacing } = useResponsive();
   const {
     notifications,
-    groupedNotifications,
     isLoading,
     unreadCount,
     loadNotifications,
     markAsRead,
     markAllAsRead,
   } = useNotifications();
+
+  const [filter, setFilter] = useState<FilterType>('all');
 
   useFocusEffect(
     useCallback(() => {
@@ -53,6 +61,16 @@ export default function NovedadesScreen() {
     },
     [markAsRead]
   );
+
+  // Filter notifications based on selected filter + exclude invalid entries
+  const filteredNotifications = notifications.filter((n) => {
+    // Skip notifications with missing data
+    if (!n.title && !n.message) return false;
+
+    if (filter === 'unread') return !n.readAt;
+    if (filter === 'read') return !!n.readAt;
+    return true;
+  });
 
   const renderNotification = useCallback(
     ({ item }: { item: Notification }) => {
@@ -102,13 +120,6 @@ export default function NovedadesScreen() {
     [handleNotificationPress]
   );
 
-  const renderSectionHeader = useCallback(
-    (date: string) => (
-      <Text style={styles.sectionHeader}>{date}</Text>
-    ),
-    []
-  );
-
   const renderEmpty = useCallback(
     () => (
       <View style={styles.emptyContainer}>
@@ -117,21 +128,18 @@ export default function NovedadesScreen() {
           size={64}
           color={colors.textSecondary}
         />
-        <Text style={styles.emptyTitle}>Sin novedades</Text>
+        <Text style={styles.emptyTitle}>
+          {filter === 'unread' ? 'Sin notificaciones nuevas' :
+           filter === 'read' ? 'Sin notificaciones leidas' :
+           'Sin novedades'}
+        </Text>
         <Text style={styles.emptyText}>
-          Aqui apareceran tus notificaciones
+          {filter === 'unread' ? 'Estas al dia con tus notificaciones' :
+           'Aqui apareceran tus notificaciones'}
         </Text>
       </View>
     ),
-    []
-  );
-
-  // Flatten grouped notifications for FlatList
-  const flattenedData = Object.entries(groupedNotifications).flatMap(
-    ([date, items]) => [
-      { type: 'header' as const, date },
-      ...items.map((item) => ({ type: 'item' as const, item })),
-    ]
+    [filter]
   );
 
   return (
@@ -148,16 +156,30 @@ export default function NovedadesScreen() {
         )}
       </View>
 
+      {/* Filter tabs */}
+      <View style={[styles.filterRow, { paddingHorizontal: spacing.hp }]}>
+        {(['all', 'unread', 'read'] as FilterType[]).map((f) => (
+          <TouchableOpacity
+            key={f}
+            style={[styles.filterTab, filter === f && styles.filterTabActive]}
+            onPress={() => setFilter(f)}
+          >
+            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
+              {f === 'all' ? 'Todas' : f === 'unread' ? 'No leidas' : 'Leidas'}
+            </Text>
+            {f === 'unread' && unreadCount > 0 && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <FlatList
-        data={flattenedData}
-        keyExtractor={(item, index) =>
-          item.type === 'header' ? `header-${item.date}` : `item-${item.item.id}`
-        }
-        renderItem={({ item }) =>
-          item.type === 'header'
-            ? renderSectionHeader(item.date)
-            : renderNotification({ item: item.item })
-        }
+        data={filteredNotifications}
+        keyExtractor={(item) => item.id}
+        renderItem={renderNotification}
         contentContainerStyle={[styles.listContent, { paddingHorizontal: spacing.hp }]}
         refreshControl={
           <RefreshControl
@@ -199,16 +221,49 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     color: colors.primary,
   },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  filterTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    gap: 6,
+  },
+  filterTabActive: {
+    backgroundColor: colors.primary + '20',
+  },
+  filterText: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.xs,
+    color: colors.textSecondary,
+  },
+  filterTextActive: {
+    color: colors.primary,
+  },
+  filterBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  filterBadgeText: {
+    fontFamily: fontFamilies.semiBold,
+    fontSize: 10,
+    color: '#fff',
+  },
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 200,
-  },
-  sectionHeader: {
-    fontFamily: fontFamilies.semiBold,
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-    marginTop: 16,
-    marginBottom: 8,
   },
   notificationCard: {
     marginBottom: 8,

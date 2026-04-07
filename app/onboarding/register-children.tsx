@@ -6,13 +6,16 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Button, Input, Card } from '@/components/ui';
 import { api } from '@/services/api';
 import colors from '@/constants/colors';
 import { fontFamilies, fontSizes } from '@/constants/typography';
+import { MaterialIcons } from '@expo/vector-icons';
 
 interface ChildForm {
   firstName: string;
@@ -42,6 +45,7 @@ export default function RegisterChildrenScreen() {
   const [currentChild, setCurrentChild] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const child = children[currentChild];
 
@@ -169,14 +173,36 @@ export default function RegisterChildrenScreen() {
           icon="person"
         />
 
-        <Input
-          label="Fecha de nacimiento"
-          value={child.birthDate}
-          onChangeText={(t) => updateChild('birthDate', t)}
-          placeholder="YYYY-MM-DD (13-17 anos)"
-          keyboardType="numbers-and-punctuation"
-          icon="cake"
-        />
+        <Text style={styles.inputLabel}>Fecha de nacimiento</Text>
+        <TouchableOpacity
+          style={styles.dateButton}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <MaterialIcons name="cake" size={20} color={colors.textSecondary} style={styles.dateIcon} />
+          <Text style={[styles.dateText, !child.birthDate && styles.datePlaceholder]}>
+            {child.birthDate
+              ? new Date(child.birthDate + 'T12:00:00').toLocaleDateString('es', { year: 'numeric', month: 'long', day: 'numeric' })
+              : 'Seleccionar fecha (13-17 anos)'}
+          </Text>
+        </TouchableOpacity>
+        {showDatePicker && (
+          <DateTimePicker
+            value={child.birthDate ? new Date(child.birthDate + 'T12:00:00') : new Date(new Date().getFullYear() - 15, 0, 1)}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            maximumDate={new Date(new Date().getFullYear() - 13, new Date().getMonth(), new Date().getDate())}
+            minimumDate={new Date(new Date().getFullYear() - 17, new Date().getMonth(), new Date().getDate())}
+            onChange={(_, selectedDate) => {
+              setShowDatePicker(Platform.OS === 'ios');
+              if (selectedDate) {
+                const yyyy = selectedDate.getFullYear();
+                const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                const dd = String(selectedDate.getDate()).padStart(2, '0');
+                updateChild('birthDate', `${yyyy}-${mm}-${dd}`);
+              }
+            }}
+          />
+        )}
 
         <Input
           label="Ciudad"
@@ -264,6 +290,35 @@ const styles = StyleSheet.create({
     fontFamily: fontFamilies.medium,
     fontSize: fontSizes.sm,
     color: colors.error,
+  },
+  inputLabel: {
+    fontFamily: fontFamilies.medium,
+    fontSize: fontSizes.sm,
+    color: colors.text,
+    marginBottom: 6,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 16,
+    backgroundColor: colors.surface,
+  },
+  dateIcon: {
+    marginRight: 12,
+  },
+  dateText: {
+    fontFamily: fontFamilies.regular,
+    fontSize: fontSizes.base,
+    color: colors.text,
+    flex: 1,
+  },
+  datePlaceholder: {
+    color: colors.textTertiary,
   },
   button: {
     marginTop: 8,

@@ -102,7 +102,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
       const accessToken = get().accessToken;
       if (accessToken) {
-        registerPushToken(accessToken).catch(console.error);
+        registerPushToken(accessToken).catch(() => {
+          // Push token registration may fail in dev builds without Firebase
+        });
       }
 
       set({
