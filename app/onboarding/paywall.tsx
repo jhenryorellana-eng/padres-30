@@ -12,7 +12,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Card } from '@/components/ui';
 import { purchaseFamilyPlan, prefetchOfferings } from '@/services/purchaseService';
-import { getPostPurchaseInfo } from '@/services/authService';
+import { getPostPurchaseInfo, createFamilyFromPurchase } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 import { waitForConfiguration } from '@/lib/revenuecat';
 import { getPrice, type BillingCycle } from '@/utils/pricing';
@@ -103,7 +103,20 @@ export default function PaywallScreen() {
       await new Promise(resolve => setTimeout(resolve, intervalMs));
     }
 
-    // If we get here, webhook hasn't processed yet
+    // Webhook hasn't processed — try fallback endpoint
+    try {
+      const fallback = await createFamilyFromPurchase();
+      if (fallback?.familyId) {
+        router.replace({
+          pathname: '/onboarding/register-children',
+          params: { childrenCount: String(childrenCount) },
+        });
+        return;
+      }
+    } catch {
+      // Fallback also failed
+    }
+
     Alert.alert(
       'Procesando',
       'Tu compra se esta procesando. Puedes cerrar la app e intentar iniciar sesion en unos minutos.',

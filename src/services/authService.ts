@@ -236,11 +236,25 @@ export async function deleteAccount(): Promise<
   }
 }
 
+/**
+ * Fallback: create family directly by verifying entitlement with RevenueCat API.
+ * Called when post-purchase-info polling times out (webhook didn't process).
+ */
+export async function createFamilyFromPurchase(): Promise<PostPurchaseInfo | null> {
+  try {
+    const response = await api.post<PostPurchaseInfo>('/api/auth/create-family-from-purchase');
+    return response.data || null;
+  } catch {
+    return null;
+  }
+}
+
 export default {
   loginWithCode,
   loginWithoutCode,
   registerMobile,
   getPostPurchaseInfo,
+  createFamilyFromPurchase,
   getCurrentUser,
   logoutSession,
   deleteAccount,
