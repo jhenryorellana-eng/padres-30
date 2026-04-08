@@ -25,15 +25,19 @@ npm install
 Crea un archivo `.env` en la raiz del proyecto:
 
 ```env
+# Requeridas
 EXPO_PUBLIC_API_URL=https://app.starbizacademy.com
 EXPO_PUBLIC_SUPABASE_URL=https://vmfdqkasrcrmcszmctmp.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=<pedir al equipo>
+
+# Opcionales (solo si vas a probar compras/suscripciones)
 EXPO_PUBLIC_PROJECT_ID=4d9f3db5-f0e5-4caf-bc16-5e500c24894f
 EXPO_PUBLIC_RC_APPLE_API_KEY=<pedir al equipo>
 EXPO_PUBLIC_RC_GOOGLE_API_KEY=<pedir al equipo>
 ```
 
 > Las API keys sensibles no se incluyen en el repo. Pedirlas al equipo de desarrollo.
+> Sin las keys de RevenueCat la app funciona normalmente para navegar, registrarse y hacer login. Solo se necesitan para probar el flujo de compra.
 
 ### 3. Iniciar el servidor de desarrollo
 
