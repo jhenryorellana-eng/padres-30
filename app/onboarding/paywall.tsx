@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,7 +15,7 @@ import { Button, Card } from '@/components/ui';
 import { purchaseFamilyPlan, prefetchOfferings } from '@/services/purchaseService';
 import { getPostPurchaseInfo, createFamilyFromPurchase } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
-import { waitForConfiguration } from '@/lib/revenuecat';
+import { waitForConfiguration, loginRevenueCat } from '@/lib/revenuecat';
 import { getPrice, type BillingCycle } from '@/utils/pricing';
 import colors from '@/constants/colors';
 import { fontFamilies, fontSizes } from '@/constants/typography';
@@ -103,9 +104,12 @@ export default function PaywallScreen() {
       await new Promise(resolve => setTimeout(resolve, intervalMs));
     }
 
-    // Webhook hasn't processed — try fallback endpoint
+    // Webhook hasn't processed — try fallback endpoint with purchase data
     try {
-      const fallback = await createFamilyFromPurchase();
+      const fallback = await createFamilyFromPurchase({
+        productId: `family_${childrenCount}_${billingCycle}`,
+        store: Platform.OS === 'ios' ? 'app_store' : 'play_store',
+      });
       if (fallback?.familyId) {
         router.replace({
           pathname: '/onboarding/register-children',
@@ -129,6 +133,17 @@ export default function PaywallScreen() {
     setErrorMessage(null);
 
     try {
+      // Ensure RevenueCat identifies the user BEFORE purchase to prevent
+      // anonymous INITIAL_PURCHASE webhooks (race condition fix)
+      const { basicUser } = useAuthStore.getState();
+      if (basicUser?.id) {
+        try {
+          await loginRevenueCat(basicUser.id);
+        } catch {
+          // Continue even if RC identification fails
+        }
+      }
+
       const customerInfo = await purchaseFamilyPlan(childrenCount, billingCycle);
 
       // Check if entitlement is active
